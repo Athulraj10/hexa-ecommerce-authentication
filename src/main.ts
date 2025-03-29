@@ -6,6 +6,7 @@ import { ConfigService } from '@nestjs/config';
 import { join } from 'path';
 import { initializeDatabase } from './database/data-source';
 import { rabbitMqConfig } from './rabbitMQ/rabbitmq.config';
+import { GrpcErrorInterceptor } from './grpc/interceptor/error.interceptor';
 
 async function bootstrap() {
   // 1. Database Initialization
@@ -53,6 +54,9 @@ async function bootstrap() {
 
   // 6. Start all microservices
   await app.startAllMicroservices();
+
+  // Apply global interceptors
+  app.useGlobalInterceptors(new GrpcErrorInterceptor());
 
   // 7. Start HTTP Server (if needed)
   const httpPort = configService.get('HTTP_PORT', 3000);
