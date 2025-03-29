@@ -48,7 +48,7 @@ async function bootstrap() {
     options: {
       package: 'auth',
       url: `0.0.0.0:${configService.get('GRPC_PORT', 4001)}`,
-      protoPath: join(process.cwd(), 'dist/proto/auth.proto'), 
+      protoPath: join(process.cwd(), 'dist/src/proto/auth.proto'), 
     },
   });
 
@@ -59,11 +59,10 @@ async function bootstrap() {
   app.useGlobalInterceptors(new GrpcErrorInterceptor());
 
   // 7. Start HTTP Server (if needed)
-  const httpPort = configService.get('HTTP_PORT', 3000);
+  const httpPort = configService.get('HTTP_PORT', 4001);
   await app.listen(httpPort);
 
   console.log('\n🚀 Services Running:');
-  console.log(`- gRPC: ${configService.get('GRPC_PORT', 4001)}`);
   console.log(`- RabbitMQ: Connected to ${configService.get('RABBITMQ_URL')}`);
   console.log(`- HTTP: ${httpPort}`);
 }
