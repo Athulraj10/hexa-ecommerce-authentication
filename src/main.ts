@@ -1,89 +1,70 @@
 import { NestFactory } from '@nestjs/core';
-import {
-  MicroserviceOptions,
-  Transport,
-  RpcException,
-} from '@nestjs/microservices';
+import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
-import { rabbitMqConfig } from './rabbitMQ/rabbitmq.config';
 import { ConfigService } from '@nestjs/config';
-import { initializeDatabase } from './database/data-source';
 import { join } from 'path';
+import { initializeDatabase } from './database/data-source';
+import { rabbitMqConfig } from './rabbitMQ/rabbitmq.config';
 
 async function bootstrap() {
-  console.log("🔄 Ensuring database exists...");
+  // 1. Database Initialization
+  console.log('🔄 Initializing database...');
   await initializeDatabase();
 
+  // 2. Create Parent Application (for shared modules/config)
   const app = await NestFactory.create(AppModule);
 
-  // Apply global pipes to the app instance
+  // 3. Global Validation Setup (for both HTTP and gRPC)
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
-      exceptionFactory: (errors) => {
-        const errorDetails = errors.map((err) => ({
-          property: err.property,
-          constraints: err.constraints,
-        }));
-
-        console.log({ errors });
-
-        throw new RpcException({
-          status: 'error',
-          message: 'Validation failed',
-          errors: errorDetails,
-        });
+      transformOptions: {
+        enableImplicitConversion: true,
       },
     }),
   );
 
-  // Create RabbitMQ microservice
-  const rabbitMqService = await NestFactory.createMicroservice<MicroserviceOptions>(AppModule, {
+  // 4. RabbitMQ Microservice Setup
+  const configService = app.get(ConfigService);
+
+  const rabbitMqService = app.connectMicroservice<MicroserviceOptions>({
     transport: Transport.RMQ,
     options: {
       urls: rabbitMqConfig.urls,
       queue: 'auth_queue',
-      queueOptions: rabbitMqConfig.queueOptions,
+      queueOptions: {
+        durable: true,
+      },
     },
   });
 
-  // Create gRPC microservice
-  const grpcService = await NestFactory.createMicroservice<MicroserviceOptions>(AppModule, {
+  // 5. gRPC Microservice Setup
+  const grpcService = app.connectMicroservice<MicroserviceOptions>({
     transport: Transport.GRPC,
     options: {
       package: 'auth',
-      protoPath: join(process.cwd(), 'dist/proto/auth.proto'), 
-      url: 'localhost:4001',
+      url: `0.0.0.0:${configService.get('GRPC_PORT', 4001)}`,
+      protoPath: join(__dirname, '../proto/auth.proto'),
     },
   });
 
-  // Start RabbitMQ and gRPC microservices
-  await rabbitMqService.listen();
-  console.log('✅ RabbitMQ Microservice is running...');
-  
-  await grpcService.listen();
-  console.log('✅ gRPC Auth Microservice is running on port 4001');
+  // 6. Start all microservices
+  await app.startAllMicroservices();
 
-  // Additional configuration for HTTP service (if needed)
-  const configService = app.get(ConfigService);
+  // 7. Start HTTP Server (if needed)
+  const httpPort = configService.get('HTTP_PORT', 3000);
+  await app.listen(httpPort);
 
-  console.log('PORT:', process.env.PORT);
-  console.log('PORT from ConfigService:', configService.get<number>('PORT', 3000));
-  console.log(
-    'Database Config:',
-    configService.get<string>('DB_HOST'),
-    configService.get<number>('DB_PORT', 5432),
-    configService.get<string>('DB_USERNAME'),
-    configService.get<string>('DB_PASSWORD'),
-    configService.get<string>('DB_NAME'),
-  );
-
-  // If your application also needs HTTP functionality (like health checks), you can uncomment the following:
-  // await app.listen(3000); // For HTTP server
-  console.log('✅ Auth Microservice is running');
+  console.log('\n🚀 Services Running:');
+  console.log(`- gRPC: ${configService.get('GRPC_PORT', 4001)}`);
+  console.log(`- RabbitMQ: Connected to ${configService.get('RABBITMQ_URL')}`);
+  console.log(`- HTTP: ${httpPort}`);
 }
 
-bootstrap();
+bootstrap().catch((err) => {
+  console.error('❌ Bootstrap failed:', err);
+  process.exit(1);
+});

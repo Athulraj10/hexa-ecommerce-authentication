@@ -1,29 +1,50 @@
+// syntax = "proto3";
+// package seller;
+
+// service SellerService {
+//   rpc AddProduct(AddProductRequest) returns (AddProductResponse);
+//   rpc DeleteProduct(DeleteProductRequest) returns (DeleteProductResponse);
+// }
+
+// message AddProductRequest {
+//   string sellerId = 1;
+//   string name = 2;
+//   string description = 3;
+//   float price = 4;
+// }
+
+// message AddProductResponse {
+//   bool success = 1;
+//   string message = 2;
+// }
+
+// message DeleteProductRequest {
+//   string sellerId = 1;
+//   string productId = 2;
+// }
+
+// message DeleteProductResponse {
+//   bool success = 1;
+//   string message = 2;
+// }
 syntax = "proto3";
+
 package seller;
 
 service SellerService {
-  rpc AddProduct(AddProductRequest) returns (AddProductResponse);
-  rpc DeleteProduct(DeleteProductRequest) returns (DeleteProductResponse);
+  rpc AddProduct (AddProductRequest) returns (AddProductResponse) {}
 }
 
 message AddProductRequest {
-  string sellerId = 1;
-  string name = 2;
-  string description = 3;
-  float price = 4;
+  string name = 1;
+  string description = 2;
+  double price = 3;
+  string token = 4;
 }
 
 message AddProductResponse {
-  bool success = 1;
-  string message = 2;
-}
-
-message DeleteProductRequest {
-  string sellerId = 1;
-  string productId = 2;
-}
-
-message DeleteProductResponse {
-  bool success = 1;
-  string message = 2;
+  string id = 1;
+  string name = 2;
+  int32 status = 3;
+  repeated string error = 4;
 }

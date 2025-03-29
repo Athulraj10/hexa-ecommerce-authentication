@@ -17,6 +17,7 @@ import { UserDatabaseService } from './auth.service';
 import { CONSTANTS } from 'src/services/Constants';
 import { Controller, Logger } from '@nestjs/common';
 import { status } from '@grpc/grpc-js';
+import { AuthResponse, LoginRequest } from 'src/proto/auth';
 
 @Controller()
 export class AuthController {
@@ -102,113 +103,78 @@ export class AuthController {
   }
 
   @GrpcMethod('AuthService', 'Login')
-  async handleAuthLogin(@Payload() data: LoginDto) {
+  async login(loginRequest: LoginRequest): Promise<AuthResponse> {
+    const timestamp = new Date().toISOString();
+    
     try {
-      // Check if email and password are provided
-      if (!data?.email || !data?.password) {
-        return this.responseService.errorResponseData(
-          CONSTANTS.RESPONSE_MESSAGE.MISSING_CREDENTIALS,
-        );
+      // Validate input
+      if (!loginRequest.email || !loginRequest.password) {
+        return {
+          error: {
+            code: status.INVALID_ARGUMENT,
+            message: 'Validation failed',
+            errors: [{
+              field: !loginRequest.email ? 'email' : 'password',
+              message: 'This field is required',
+              code: 'REQUIRED_FIELD'
+            }],
+            timestamp
+          }
+        };
       }
-
-      const payload = {
-        email: data.email,
-        password: data.password,
-      };
-
-      // Check if the email exists in the database
-      const currentUser = await this.userDatabaseService.checkEmailExists(
-        payload.email,
+  
+      // Business logic
+      const user = await this.userService.validateUser(
+        loginRequest.email, 
+        loginRequest.password
       );
-      console.log({ currentUser });
-
-      if (!currentUser) {
-        throw new RpcException({
-          code: status.NOT_FOUND, // gRPC status code
-          message: 'User not found',
-          details: `No user found with email: ${data.email}`,
-        });
+  
+      if (!user) {
+        return {
+          error: {
+            code: status.UNAUTHENTICATED,
+            message: 'Authentication failed',
+            errors: [{
+              field: 'credentials',
+              message: 'Invalid email or password',
+              code: 'INVALID_CREDENTIALS'
+            }],
+            timestamp
+          }
+        };
       }
-
-      // If user exists, verify password
-      const passwordWithoutHash = payload.password;
-      if (passwordWithoutHash) {
-        const hashedPassword = await bcrypt.compare(
-          passwordWithoutHash,
-          currentUser.password,
-        );
-
-        if (!hashedPassword) {
-          this.logger.warn(`Incorrect password for email: ${data.email}`);
-          return this.responseService.errorResponseData(
-            CONSTANTS.RESPONSE_MESSAGE.EMAIL_OR_PASSWORD_INCORRECT,
-          );
+  
+      // Generate tokens
+      const tokens = await this.tokenService.generateTokens(user);
+  
+      return {
+        success: {
+          accessToken: tokens.accessToken,
+          refreshToken: tokens.refreshToken,
+          user: {
+            id: user.id,
+            email: user.email,
+            name: user.name
+          }
         }
-
-        // Generate access and refresh tokens
-        const accessTokenPayload = {
-          email: currentUser.email,
-          role: currentUser.role,
-          userId: currentUser.id,
-        };
-
-        const refreshTokenPayload = {
-          email: currentUser.email,
-          role: currentUser.role,
-          userId: currentUser.id,
-        };
-
-        const userTokens = {
-          accessToken:
-            await this.jwtService.generateAccessToken(accessTokenPayload),
-          refreshToken:
-            await this.jwtService.generateRefreshToken(refreshTokenPayload),
-        };
-
-        this.logger.log(`Generated tokens for user: ${data.email}`);
-
-        // Save refresh token to the database
-        const userTokenPayload = {
-          userId: currentUser.id,
-          refreshToken: userTokens.refreshToken,
-        };
-
-        const saveTokenToDatabase =
-          await this.userDatabaseService.checkRefreshTokenToUser(
-            userTokenPayload,
-          );
-        console.log({ saveTokenToDatabase });
-
-        // Exclude password from the user data
-        const { password, ...userDataWithoutPassword } = currentUser;
-
-        // Return success response with the tokens and user data (without password)
-        return this.responseService.successResponse(
-          {
-            newUser: userDataWithoutPassword,
-            accessToken: userTokens.accessToken,
-            refreshToken: userTokens.refreshToken,
-          },
-          'Login successful',
-        );
-      } else {
-        this.logger.warn(
-          `Password is missing or invalid for email: ${data.email}`,
-        );
-        return this.responseService.errorResponseData(
-          CONSTANTS.RESPONSE_MESSAGE.PASSWORD_REQUIRED,
-        );
-      }
+      };
+  
     } catch (error) {
-      // Log the error and return a generic error response
-      this.logger.error('Error in auth_login: ', error.message, error.stack);
-
-      // Instead of throwing an exception, return the error message to gRPC response
-      return this.responseService.errorResponseData(
-        CONSTANTS.RESPONSE_MESSAGE.SERVER_ERROR,
-        500,
-        error.message,
-      );
+      return {
+        error: {
+          code: status.INTERNAL,
+          message: 'Internal server error',
+          errors: [{
+            field: 'system',
+            message: 'An unexpected error occurred',
+            code: 'SERVER_ERROR'
+          }],
+          timestamp,
+          ...(process.env.NODE_ENV === 'development' && { 
+            details: error.message 
+          })
+        }
+      };
     }
   }
 
