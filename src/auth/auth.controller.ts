@@ -1,41 +1,36 @@
 import {
-  Controller,
-  Logger,
-  BadRequestException,
-  Inject,
-} from '@nestjs/common';
-import {
   ClientProxy,
   MessagePattern,
   Payload,
   RpcException,
 } from '@nestjs/microservices';
-import { LoginDto } from './dto/login.dto';
 import { RabbitMQMessagePatterns } from 'src/rabbitMQ/RabbitMQ_message_pattern';
-import { SignupDto } from './dto/signup.dto';
-import { lastValueFrom, timeout } from 'rxjs';
+import { GrpcMethod } from '@nestjs/microservices';
 import * as bcrypt from 'bcrypt';
-import { ResponseService } from 'src/services/response';
-import { JwtService } from 'src/services/jwt.service';
-import { UUIDService } from 'src/services/uuid.service';
+import { LoginDto } from './dto/login.dto';
+import { SignupDto } from './dto/signup.dto';
 import { RefreshTokenDto } from './dto/refresh.dto';
-import { CONSTANTS } from 'src/services/Constants';
-import { UserDatabaseService } from './auth.service';
 import { ResetPasswordDto } from './dto/resetPassword.dto';
+import { JwtService } from 'src/services/jwt.service';
+import { ResponseService } from 'src/services/response';
+import { UserDatabaseService } from './auth.service';
+import { CONSTANTS } from 'src/services/Constants';
+import { Controller, Logger } from '@nestjs/common';
+import { status } from '@grpc/grpc-js';
 
 @Controller()
 export class AuthController {
+  private readonly logger = new Logger(AuthController.name);
+
   constructor(
-    @Inject('AUTH_SERVICE')
-    private readonly centerilizedDatabase: ClientProxy,
     private readonly responseService: ResponseService,
     private readonly jwtService: JwtService,
     private readonly userDatabaseService: UserDatabaseService,
   ) {}
-  private readonly logger = new Logger(AuthController.name);
 
-  @MessagePattern(RabbitMQMessagePatterns.SIGNUP)
+  @GrpcMethod('AuthService', 'Signup')
   async handleSignup(@Payload() credentials: SignupDto) {
+    console.log({ credentials });
     try {
       if (
         credentials?.email &&
@@ -106,86 +101,118 @@ export class AuthController {
     }
   }
 
-  @MessagePattern(RabbitMQMessagePatterns.LOGIN)
+  @GrpcMethod('AuthService', 'Login')
   async handleAuthLogin(@Payload() data: LoginDto) {
     try {
-      if (data?.email && data?.password) {
-        const payload = {
-          email: data?.email,
-          password: data?.password,
-        };
-        const currentUser = await this.userDatabaseService.checkEmailExists(
-          payload.email,
+      // Check if email and password are provided
+      if (!data?.email || !data?.password) {
+        return this.responseService.errorResponseData(
+          CONSTANTS.RESPONSE_MESSAGE.MISSING_CREDENTIALS,
+        );
+      }
+
+      const payload = {
+        email: data.email,
+        password: data.password,
+      };
+
+      // Check if the email exists in the database
+      const currentUser = await this.userDatabaseService.checkEmailExists(
+        payload.email,
+      );
+      console.log({ currentUser });
+
+      if (!currentUser) {
+        throw new RpcException({
+          code: status.NOT_FOUND, // gRPC status code
+          message: 'User not found',
+          details: `No user found with email: ${data.email}`,
+        });
+      }
+
+      // If user exists, verify password
+      const passwordWithoutHash = payload.password;
+      if (passwordWithoutHash) {
+        const hashedPassword = await bcrypt.compare(
+          passwordWithoutHash,
+          currentUser.password,
         );
 
-        console.log({ currentUser });
-        if (!currentUser) {
+        if (!hashedPassword) {
+          this.logger.warn(`Incorrect password for email: ${data.email}`);
           return this.responseService.errorResponseData(
-            CONSTANTS.RESPONSE_MESSAGE.EMAIL_NOT_FOUND,
+            CONSTANTS.RESPONSE_MESSAGE.EMAIL_OR_PASSWORD_INCORRECT,
           );
         }
 
-        if (currentUser) {
-          const passwordWithoutHash = payload?.password;
-          if (passwordWithoutHash) {
-            const hashedPassword = await bcrypt.compare(
-              passwordWithoutHash,
-              currentUser.password,
-            );
+        // Generate access and refresh tokens
+        const accessTokenPayload = {
+          email: currentUser.email,
+          role: currentUser.role,
+          userId: currentUser.id,
+        };
 
-            if (!hashedPassword) {
-              return this.responseService.errorResponseData(
-                CONSTANTS.RESPONSE_MESSAGE.EMAIL_OR_PASSWORD_INCORRECT,
-              );
-            }
+        const refreshTokenPayload = {
+          email: currentUser.email,
+          role: currentUser.role,
+          userId: currentUser.id,
+        };
 
-            const accessTokenPayload = {
-              email: currentUser.email,
-              role: currentUser.role,
-              userId: currentUser.id,
-            };
-            const refreshTokenPayload = {
-              email: currentUser.email,
-              role: currentUser.role,
-              userId: currentUser.id,
-            };
+        const userTokens = {
+          accessToken:
+            await this.jwtService.generateAccessToken(accessTokenPayload),
+          refreshToken:
+            await this.jwtService.generateRefreshToken(refreshTokenPayload),
+        };
 
-            const userTokens = {
-              accessToken:
-                await this.jwtService.generateAccessToken(accessTokenPayload),
-              refreshToken:
-                await this.jwtService.generateRefreshToken(refreshTokenPayload),
-            };
-            console.log({ userTokens });
-            const userTokenPayload = {
-              userId: currentUser.id,
-              refreshToken: userTokens.refreshToken,
-            };
-            const saveTokenToDatabase =
-              await this.userDatabaseService.checkRefreshTokenToUser(
-                userTokenPayload,
-              );
+        this.logger.log(`Generated tokens for user: ${data.email}`);
 
-            console.log({ saveTokenToDatabase });
+        // Save refresh token to the database
+        const userTokenPayload = {
+          userId: currentUser.id,
+          refreshToken: userTokens.refreshToken,
+        };
 
-            const { password, ...userDataWithoutPassword } = currentUser;
-            return this.responseService.successResponse(
-              {
-                newUser: userDataWithoutPassword,
-                accessToken: userTokens?.accessToken,
-                refreshToken: userTokens?.refreshToken,
-              },
-              'Login successful',
-            );
-          }
-        }
+        const saveTokenToDatabase =
+          await this.userDatabaseService.checkRefreshTokenToUser(
+            userTokenPayload,
+          );
+        console.log({ saveTokenToDatabase });
+
+        // Exclude password from the user data
+        const { password, ...userDataWithoutPassword } = currentUser;
+
+        // Return success response with the tokens and user data (without password)
+        return this.responseService.successResponse(
+          {
+            newUser: userDataWithoutPassword,
+            accessToken: userTokens.accessToken,
+            refreshToken: userTokens.refreshToken,
+          },
+          'Login successful',
+        );
+      } else {
+        this.logger.warn(
+          `Password is missing or invalid for email: ${data.email}`,
+        );
+        return this.responseService.errorResponseData(
+          CONSTANTS.RESPONSE_MESSAGE.PASSWORD_REQUIRED,
+        );
       }
     } catch (error) {
+      // Log the error and return a generic error response
       this.logger.error('Error in auth_login: ', error.message, error.stack);
+
+      // Instead of throwing an exception, return the error message to gRPC response
+      return this.responseService.errorResponseData(
+        CONSTANTS.RESPONSE_MESSAGE.SERVER_ERROR,
+        500,
+        error.message,
+      );
     }
   }
 
-  @MessagePattern(RabbitMQMessagePatterns.REFRESH_TOKEN)
+  @GrpcMethod('AuthService', 'RefreshToken')
   async handleAuthRefresh(@Payload() data: RefreshTokenDto) {
     try {
       if (data) {
@@ -266,7 +293,7 @@ export class AuthController {
     }
   }
 
-  @MessagePattern(RabbitMQMessagePatterns.RESET_PASSWORD)
+  @GrpcMethod('AuthService', 'ResetPassword')
   async handleResetPassword(@Payload() data: ResetPasswordDto) {
     try {
       if (data) {
@@ -345,7 +372,7 @@ export class AuthController {
     }
   }
 
-  @MessagePattern(RabbitMQMessagePatterns.LOGOUT)
+  @GrpcMethod('AuthService', 'Logout')
   async logoutUser(@Payload() data: any) {
     try {
       if (data && data?.userId) {

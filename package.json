@@ -20,12 +20,14 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@grpc/grpc-js": "^1.13.2",
+    "@grpc/proto-loader": "^0.7.13",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.1",
     "@nestjs/core": "^11.0.1",
     "@nestjs/jwt": "^11.0.0",
     "@nestjs/mapped-types": "*",
-    "@nestjs/microservices": "^11.0.10",
+    "@nestjs/microservices": "^11.0.12",
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/typeorm": "^11.0.0",
     "@types/jsonwebtoken": "^9.0.9",

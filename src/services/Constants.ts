@@ -11,5 +11,8 @@ export const CONSTANTS = {
         USER_NOT_FOUND:"User not found",
         OLD_PASSWORD_INVALID:"Old Password Invalid",
         PASSWORD_RESET_SUCCESSFUL:"Password reset successful",
+        MISSING_CREDENTIALS:"MISSING_CREDENTIALS",
+        PASSWORD_REQUIRED:"PASSWORD_REQUIRED",
+        SERVER_ERROR:"SERVER_ERROR",
     },
 }

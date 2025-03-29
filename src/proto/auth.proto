@@ -46,3 +46,9 @@ message LogoutResponse {
 message ResetPasswordResponse {
   bool success = 1;
 }
+
+message ErrorResponse {
+  int32 code = 1;
+  string message = 2;
+  string details = 3;
+}
