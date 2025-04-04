@@ -17,6 +17,9 @@ import { UserDatabaseService } from './auth.service';
 import { CONSTANTS } from 'src/services/Constants';
 import { Controller, Logger } from '@nestjs/common';
 import { status } from '@grpc/grpc-js';
+import { validate } from 'class-validator';
+import { RpcCustomException } from 'src/shared/exceptions/rpc-custom.exception';
+import { plainToInstance } from 'class-transformer';
 
 @Controller()
 export class AuthController {
@@ -31,6 +34,12 @@ export class AuthController {
   @GrpcMethod('AuthService', 'Signup')
   async handleSignup(@Payload() credentials: SignupDto) {
     console.log({ credentials });
+    const errors = await validate(credentials);
+    if (errors.length > 0) {
+      throw RpcCustomException.invalidArgument('Validation failed', {
+        errors: errors.map((e) => e.constraints),
+      });
+    }
     try {
       if (
         credentials?.email &&
@@ -102,19 +111,31 @@ export class AuthController {
   }
 
   @GrpcMethod('AuthService', 'Login')
-  async handleAuthLogin(@Payload() data: LoginDto) {
+  async handleAuthLogin(data: any) {
+    console.log({ data });
     try {
-      // Check if email and password are provided
-      if (!data?.email || !data?.password) {
-        return this.responseService.errorResponseData(
-          CONSTANTS.RESPONSE_MESSAGE.MISSING_CREDENTIALS,
-        );
+      const loginDto = plainToInstance(LoginDto, data);
+
+      const errors = await validate(loginDto);
+      if (errors.length > 0) {
+        console.log('❌ Validation Errors:', errors);
+
+        if (errors.length > 0) {
+          throw RpcCustomException.invalidArgument(
+            'Validation failed',
+            errors.map((e) => ({
+              field: e.property,
+              constraints: e.constraints,
+            })),
+          );
+        }
       }
 
       const payload = {
         email: data.email,
         password: data.password,
       };
+      console.log({ payload });
 
       // Check if the email exists in the database
       const currentUser = await this.userDatabaseService.checkEmailExists(
@@ -123,11 +144,7 @@ export class AuthController {
       console.log({ currentUser });
 
       if (!currentUser) {
-        throw new RpcException({
-          code: status.NOT_FOUND, // gRPC status code
-          message: 'User not found',
-          details: `No user found with email: ${data.email}`,
-        });
+        throw RpcCustomException.unauthorized('Invalid credentials');
       }
 
       // If user exists, verify password
@@ -201,14 +218,14 @@ export class AuthController {
       }
     } catch (error) {
       // Log the error and return a generic error response
-      this.logger.error('Error in auth_login: ', error.message, error.stack);
-
-      // Instead of throwing an exception, return the error message to gRPC response
-      return this.responseService.errorResponseData(
-        CONSTANTS.RESPONSE_MESSAGE.SERVER_ERROR,
-        500,
-        error.message,
-      );
+      if (!(error instanceof RpcException)) {
+        console.error('Error in auth_login:', error);
+        throw new RpcException({
+          code: status.INTERNAL,
+          message: 'Authentication service error',
+        });
+      }
+      throw error;
     }
   }
 

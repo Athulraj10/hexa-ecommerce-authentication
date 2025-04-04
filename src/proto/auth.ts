@@ -10,76 +10,48 @@ import { Observable } from "rxjs";
 
 export const protobufPackage = "auth";
 
-/** Request messages remain the same */
 export interface LoginRequest {
+  email: string;
+  password: string;
+  role: string;
 }
 
 export interface SignUpRequest {
-}
-
-export interface LogoutRequest {
-}
-
-export interface RefreshTokenRequest {
-}
-
-export interface ResetPasswordRequest {
-}
-
-/** Updated response messages */
-export interface AuthResponse {
-  success?: AuthSuccess | undefined;
-  error?: ErrorResponse | undefined;
-}
-
-export interface AuthSuccess {
-  accessToken: string;
-  refreshToken: string;
-  user: UserData | undefined;
-}
-
-export interface UserData {
-  id: string;
   email: string;
+  password: string;
   name: string;
 }
 
-export interface LogoutResponse {
-  success?: LogoutSuccess | undefined;
-  error?: ErrorResponse | undefined;
+export interface LogoutRequest {
+  userId: string;
 }
 
-export interface LogoutSuccess {
+export interface RefreshTokenRequest {
+  refreshToken: string;
+}
+
+export interface ResetPasswordRequest {
+  userId: string;
+  newPassword: string;
+}
+
+export interface AuthResponse {
+  accessToken: string;
+  refreshToken: string;
+}
+
+export interface LogoutResponse {
   success: boolean;
 }
 
 export interface ResetPasswordResponse {
-  success?: ResetPasswordSuccess | undefined;
-  error?: ErrorResponse | undefined;
-}
-
-export interface ResetPasswordSuccess {
   success: boolean;
 }
 
 export interface ErrorResponse {
-  /** gRPC status code */
   code: number;
-  /** User-friendly message */
   message: string;
-  /** Field-specific errors */
-  errors: ErrorDetail[];
-  /** ISO timestamp */
-  timestamp: string;
-}
-
-export interface ErrorDetail {
-  /** Which field caused error */
-  field: string;
-  /** Field-specific message */
-  message: string;
-  /** Machine-readable code */
-  code: string;
+  details: string;
 }
 
 export const AUTH_PACKAGE_NAME = "auth";
