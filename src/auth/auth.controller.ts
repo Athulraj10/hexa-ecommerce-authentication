@@ -114,6 +114,7 @@ export class AuthController {
   async handleAuthLogin(data: any) {
     console.log({ data });
     try {
+
       const loginDto = plainToInstance(LoginDto, data);
 
       const errors = await validate(loginDto);
@@ -144,7 +145,13 @@ export class AuthController {
       console.log({ currentUser });
 
       if (!currentUser) {
-        throw RpcCustomException.unauthorized('Invalid credentials');
+        throw RpcCustomException.authenticationFail(
+          CONSTANTS.RESPONSE_MESSAGE.ACCOUND_NOT_FOUND,
+          {
+            message: CONSTANTS.RESPONSE_MESSAGE.ACCOUND_NOT_FOUND,
+            errors: "userDetails is invalid"
+          }
+        );
       }
 
       // If user exists, verify password

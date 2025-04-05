@@ -4,6 +4,7 @@ export const CONSTANTS = {
         INVALID_TOKEN:"Invalid Token",
         EMAIL_ALREADY_USED:"Email already in use",
         EMAIL_NOT_FOUND:"Email not found",
+        ACCOUND_NOT_FOUND:"Account Not Found",
         EMAIL_OR_PASSWORD_INCORRECT:"Email or Password Incorrect",
         NEW_USER_CREATED:"new user created",
         INTERNAL_SERVER_ERROR:"Internal Server",
