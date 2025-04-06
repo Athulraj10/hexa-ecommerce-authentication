@@ -8,17 +8,33 @@ export class RpcCustomException extends RpcException {
     public readonly message: string,
     public readonly details?: Record<string, any>,
   ) {
-    super({ code, message, details: JSON.stringify(details || {}) });
+    super({
+      code,
+      message,
+      details: JSON.stringify({
+        message,
+        errors: details || {},
+      }),
+    });
+    
   }
 
   static notFound(message: string, details?: Record<string, any>) {
     return new RpcCustomException(GrpcStatus.NOT_FOUND, message, details);
   }
+  static authenticationFail(message: string, details?: Record<string, any>) {
+    console.log({ GRPCSTATUS: GrpcStatus.UNAUTHENTICATED, message, details });
+    return new RpcCustomException(GrpcStatus.UNAUTHENTICATED, message, details);
+  }
 
   static invalidArgument(message: string, details?: Record<string, any>) {
     // console.log({"GrpcStatus.INVALID_ARGUMENT":GrpcStatus, message, details})
-    console.log({ message, details})
-    return new RpcCustomException(GrpcStatus.INVALID_ARGUMENT, message, details);
+    console.log({ message, details });
+    return new RpcCustomException(
+      GrpcStatus.INVALID_ARGUMENT,
+      message,
+      details,
+    );
   }
 
   static unauthorized(message: string, details?: Record<string, any>) {
@@ -33,9 +49,7 @@ export class RpcCustomException extends RpcException {
     return new RpcCustomException(GrpcStatus.PERMISSION_DENIED, message);
   }
 
-
   static internalError(message: string) {
     return new RpcCustomException(GrpcStatus.INTERNAL, message);
   }
-
 }
