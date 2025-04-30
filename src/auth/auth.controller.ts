@@ -21,6 +21,7 @@ import { validate } from 'class-validator';
 import { RpcCustomException } from 'src/shared/exceptions/rpc-custom.exception';
 import { plainToInstance } from 'class-transformer';
 
+
 @Controller()
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
@@ -31,14 +32,26 @@ export class AuthController {
     private readonly userDatabaseService: UserDatabaseService,
   ) {}
 
-  @GrpcMethod('AuthService', 'Signup')
+  @GrpcMethod('AuthService', 'SignUp')
   async handleSignup(@Payload() credentials: SignupDto) {
-    console.log({ credentials });
-    const errors = await validate(credentials);
+    const SignupValidation = plainToInstance(SignupDto, credentials);
+    const errors = await validate(SignupValidation);
     if (errors.length > 0) {
-      throw RpcCustomException.invalidArgument('Validation failed', {
-        errors: errors.map((e) => e.constraints),
-      });
+      console.log('❌ Validation Errors:', errors);
+
+      if (errors.length > 0) {
+        const extractError = errors.map((e) => ({
+          field: e.property,
+          constrains: e.constraints,
+        }));
+        throw RpcCustomException.invalidArgument(
+          CONSTANTS.RESPONSE_MESSAGE.VALIDATION_ERROR,
+          {
+            message: CONSTANTS.RESPONSE_MESSAGE.VALIDATION_ERROR,
+            errors: extractError,
+          },
+        );
+      }
     }
     try {
       if (
@@ -53,10 +66,15 @@ export class AuthController {
         );
         // THROW ERROR IF EXISIT
         if (isEmailExist) {
-          return this.responseService.errorResponseData(
+          throw RpcCustomException.authenticationFail(
             CONSTANTS.RESPONSE_MESSAGE.EMAIL_ALREADY_USED,
+            {
+              message: CONSTANTS.RESPONSE_MESSAGE.EMAIL_ALREADY_USED,
+              errors: credentials.email,
+            },
           );
         }
+
 
         if (!isEmailExist) {
           const passwordWithoutHash = credentials?.password;
@@ -105,8 +123,12 @@ export class AuthController {
         }
       }
     } catch (error) {
-      console.error(error);
-      return this.responseService.errorResponseWithoutData(error);
+      if (!(error instanceof RpcException)) {
+        console.error('❌ Unexpected Error:', error);
+        throw RpcCustomException.internalError(CONSTANTS.RESPONSE_MESSAGE.INTERNAL_SERVER_ERROR);
+      }
+    
+      throw error;
     }
   }
 
@@ -114,7 +136,6 @@ export class AuthController {
   async handleAuthLogin(data: any) {
     console.log({ data });
     try {
-
       const loginDto = plainToInstance(LoginDto, data);
 
       const errors = await validate(loginDto);
@@ -149,8 +170,8 @@ export class AuthController {
           CONSTANTS.RESPONSE_MESSAGE.ACCOUND_NOT_FOUND,
           {
             message: CONSTANTS.RESPONSE_MESSAGE.ACCOUND_NOT_FOUND,
-            errors: "userDetails is invalid"
-          }
+            errors: 'userDetails is invalid',
+          },
         );
       }
 

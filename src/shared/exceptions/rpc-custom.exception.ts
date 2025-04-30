@@ -16,7 +16,6 @@ export class RpcCustomException extends RpcException {
         errors: details || {},
       }),
     });
-    
   }
 
   static notFound(message: string, details?: Record<string, any>) {
@@ -28,7 +27,6 @@ export class RpcCustomException extends RpcException {
   }
 
   static invalidArgument(message: string, details?: Record<string, any>) {
-    // console.log({"GrpcStatus.INVALID_ARGUMENT":GrpcStatus, message, details})
     console.log({ message, details });
     return new RpcCustomException(
       GrpcStatus.INVALID_ARGUMENT,

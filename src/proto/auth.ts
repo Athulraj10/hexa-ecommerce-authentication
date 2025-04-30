@@ -10,6 +10,23 @@ import { Observable } from "rxjs";
 
 export const protobufPackage = "auth";
 
+export interface Meta {
+  code: number;
+  message: string;
+  extras: { [key: string]: string };
+}
+
+export interface Meta_ExtrasEntry {
+  key: string;
+  value: string;
+}
+
+export interface GenericSuccessResponse {
+  success: boolean;
+  timestamp: string;
+  meta: Meta | undefined;
+}
+
 export interface LoginRequest {
   email: string;
   password: string;
@@ -20,6 +37,8 @@ export interface SignUpRequest {
   email: string;
   password: string;
   name: string;
+  phoneNo: string;
+  role: string;
 }
 
 export interface LogoutRequest {
@@ -54,28 +73,55 @@ export interface ErrorResponse {
   details: string;
 }
 
+/** Success response message */
+export interface SuccessResponse {
+  /** Indicates if the request was successful */
+  success: boolean;
+  /** ISO timestamp of the response */
+  timestamp: string;
+  /** Main response data (serialized as bytes) */
+  data: Uint8Array;
+  /** Metadata about the response */
+  meta: SuccessResponse_Meta | undefined;
+}
+
+/** Nested metadata message */
+export interface SuccessResponse_Meta {
+  /** HTTP status code (e.g., 200) */
+  code: number;
+  /** Human-readable message (e.g., "Success") */
+  message: string;
+  /** Additional key-value pairs */
+  extras: { [key: string]: string };
+}
+
+export interface SuccessResponse_Meta_ExtrasEntry {
+  key: string;
+  value: string;
+}
+
 export const AUTH_PACKAGE_NAME = "auth";
 
 export interface AuthServiceClient {
-  login(request: LoginRequest): Observable<AuthResponse>;
+  login(request: LoginRequest): Observable<SuccessResponse>;
 
-  signUp(request: SignUpRequest): Observable<AuthResponse>;
+  signUp(request: SignUpRequest): Observable<SuccessResponse>;
 
   logout(request: LogoutRequest): Observable<LogoutResponse>;
 
-  refreshToken(request: RefreshTokenRequest): Observable<AuthResponse>;
+  refreshToken(request: RefreshTokenRequest): Observable<SuccessResponse>;
 
   resetPassword(request: ResetPasswordRequest): Observable<ResetPasswordResponse>;
 }
 
 export interface AuthServiceController {
-  login(request: LoginRequest): Promise<AuthResponse> | Observable<AuthResponse> | AuthResponse;
+  login(request: LoginRequest): Promise<SuccessResponse> | Observable<SuccessResponse> | SuccessResponse;
 
-  signUp(request: SignUpRequest): Promise<AuthResponse> | Observable<AuthResponse> | AuthResponse;
+  signUp(request: SignUpRequest): Promise<SuccessResponse> | Observable<SuccessResponse> | SuccessResponse;
 
   logout(request: LogoutRequest): Promise<LogoutResponse> | Observable<LogoutResponse> | LogoutResponse;
 
-  refreshToken(request: RefreshTokenRequest): Promise<AuthResponse> | Observable<AuthResponse> | AuthResponse;
+  refreshToken(request: RefreshTokenRequest): Promise<SuccessResponse> | Observable<SuccessResponse> | SuccessResponse;
 
   resetPassword(
     request: ResetPasswordRequest,

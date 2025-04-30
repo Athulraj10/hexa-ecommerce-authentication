@@ -7,6 +7,7 @@ export class ResponseService {
    * Success response for gRPC
    */
   successResponse(data: any, message = 'Success', extras?: Record<string, any>) {
+    console.log({data,message, extras})
     return {
       success: true,
       timestamp: new Date().toISOString(),

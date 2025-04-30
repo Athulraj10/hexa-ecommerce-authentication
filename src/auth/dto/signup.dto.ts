@@ -8,7 +8,7 @@ export class SignupDto {
   name: string;
 
   @IsEmail()
-  email: string;
+  email!: string;
 
   @IsString({message:'password must be a 6 - 20 length...'})
   @Length(6, 20)
@@ -23,3 +23,4 @@ export class SignupDto {
   role!: UserRole;
 
 }
+
