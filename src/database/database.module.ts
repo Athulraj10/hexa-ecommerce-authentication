@@ -1,5 +1,5 @@
 import * as crypto from 'crypto';
-(global as any).crypto = crypto;
+// (global as any).crypto = crypto;
 
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -16,11 +16,11 @@ import { RefreshToken } from './entities/refreshToken.entity';
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
         type: 'postgres',
-        host: configService.get<string>('DB_HOST'),
-        port: Number(configService.get<string>('DB_PORT')),
-        username: configService.get<string>('DB_USERNAME'),
-        password: configService.get<string>('DB_PASSWORD'),
-        database: configService.get<string>('DB_NAME'),
+        host: configService.get<string>('appEnvConfig.DB_HOST'),
+        port: Number(configService.get<string>('appEnvConfig.DB_PORT')),
+        username: configService.get<string>('appEnvConfig.DB_USERNAME'),
+        password: configService.get<string>('appEnvConfig.DB_PASSWORD'),
+        database: configService.get<string>('appEnvConfig.DB_NAME'),
         autoLoadEntities: true,
         synchronize: true,
         entities: [User, Address, RefreshToken],
@@ -30,4 +30,8 @@ import { RefreshToken } from './entities/refreshToken.entity';
   ],
   exports: [TypeOrmModule],
 })
-export class DatabaseModule {}
+export class DatabaseModule {
+  constructor() {
+    console.log('DatabaseModule initialized ==> ');
+  }
+}

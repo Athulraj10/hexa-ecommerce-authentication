@@ -1,12 +1,12 @@
 import "reflect-metadata";
 import { DataSource, DataSourceOptions } from "typeorm";
-import * as dotenv from "dotenv";
+// import * as dotenv from "dotenv";
 import { Client } from "pg"; 
 import { User } from "./entities/user.entity";
 import { Address } from "./entities/address.entity";
 import { RefreshToken } from "./entities/refreshToken.entity";
 
-dotenv.config();
+// dotenv.config();
 
 const databaseConfig: DataSourceOptions = {
   type: "postgres",
