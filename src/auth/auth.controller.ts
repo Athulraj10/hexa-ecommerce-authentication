@@ -53,6 +53,8 @@ export class AuthController {
         );
       }
     }
+
+    console.log({credentials});
     try {
       if (
         credentials?.email &&

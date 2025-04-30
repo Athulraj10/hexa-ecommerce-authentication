@@ -7,15 +7,16 @@ export class ResponseService {
    * Success response for gRPC
    */
   successResponse(data: any, message = 'Success', extras?: Record<string, any>) {
-    console.log({data,message, extras})
+    const serializedData = Buffer.from(JSON.stringify(data)); // Encode your data
+  
     return {
       success: true,
       timestamp: new Date().toISOString(),
-      data,
+      data: serializedData,
       meta: {
         code: 200,
         message,
-        ...extras, // Add any extra metadata if provided
+        extras: extras || {},
       },
     };
   }
