@@ -8,8 +8,8 @@ import { CustomConfigModule } from './config/config.module';
 @Module({
   imports: [
     CustomConfigModule,
-    RabbitMQModule,
     DatabaseModule,
+    RabbitMQModule,
     AuthModule,
   ],
   controllers: [],

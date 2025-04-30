@@ -9,10 +9,10 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from 'src/database/entities/user.entity';
 import { RefreshToken } from 'src/database/entities/refreshToken.entity';
 import { ConfigModule } from '@nestjs/config';
+import { JwtConfigModule } from 'src/jwt config/jwt.register.module';
 
 import { JwtModule } from '@nestjs/jwt';
 import { jwtConfig } from 'config/jwt.config';
-import { JwtConfigModule } from 'src/jwt config/jwt.register.module';
 
 @Module({
   imports: [
