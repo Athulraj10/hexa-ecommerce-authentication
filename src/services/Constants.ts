@@ -1,5 +1,6 @@
 export const CONSTANTS = {
     RESPONSE_MESSAGE:{
+        VALIDATION_ERROR:"Validation failed",
         TOKEN_EXPIRED:"token expired",
         INVALID_TOKEN:"Invalid Token",
         EMAIL_ALREADY_USED:"Email already in use",
